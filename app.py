@@ -2,19 +2,42 @@ import sys, os
 import json
 import xmltodict
 import requests
+from enum import Enum
 
-def get_credentials(path=None):
-    data = None
-    if not path:
-        if 'yahoo' in os.getcwd():
-            path = os.path.join(os.getcwd(), 'settings.json')
-        else:
-            path = os.path.join(os.getcwd(), 'yahoo', 'settings.json')
-    with open(path) as json_data_file:
-        data = json.load(json_data_file)
-    return data
+'''
+All – Fetches all attributes
 
-def generate_catalog_req_dict(credentials, item_id):    
+Mandatory- Fetches all
+    mandatory attributes
+
+Store- Fetches all store
+    attributes
+
+Shopping – Fetches all the
+    shopping attributes
+
+Custom- Fetches all the
+    custom attributes
+    Attributes for each category
+    can be found in Catalog
+    Manager > Manage Tables.
+'''
+
+class AttributesType(Enum):
+    ALL = 'all'
+    MANDATORY = 'mandatory'
+    STORE = 'store'
+    SHOPPING = 'shopping'
+    CUSTOM = 'custom'
+
+if 'yahoo' in os.getcwd():
+    path = os.path.join(os.getcwd(), 'settings.json')
+else:
+    path = os.path.join(os.getcwd(), 'yahoo', 'settings.json')
+with open(path) as json_data_file:
+    credentials = json.load(json_data_file)
+
+def generate_get_items_dict(credentials, item_id):    
     item_id_list = None
     req_dict = None
     if item_id:
@@ -35,7 +58,7 @@ def generate_catalog_req_dict(credentials, item_id):
                 'ResourceList': {
                     'CatalogQuery': {
                         'ItemQueryList': {
-                            'AttributesType': 'all',
+                            'AttributesType': AttributesType.ALL,
                             'ItemIDList': item_id_list
                         }
                     }
@@ -49,7 +72,7 @@ def execute_request(credentials, item_id = None):
     url = None
     if 'StoreID' in credentials.keys():
         url = f'https://{credentials["StoreID"]}.catalog.store.yahooapis.com/V1/CatalogQuery'
-    req_dict = generate_catalog_req_dict(credentials, item_id)
+    req_dict = generate_get_items_dict(credentials, item_id)
     if req_dict:
         headers = {'Content-Type': 'application/xml'}
         data = xmltodict.unparse(req_dict)
@@ -60,7 +83,6 @@ def execute_request(credentials, item_id = None):
     return result
 
 if __name__ == '__main__':
-    credentials = get_credentials()
     result = None
     ids = ['kj2375-intel-core-i58400-coffee-lake-6core-28-ghz-lga115', 'jw4213-gigabyte-bluetooth-wifi-pcie-adapter', 
             'te5364-intel-bx80673i77820x-core-i7-xseries-cpu', 'ou6449-asus-rog-strix-geforce-gtx-1080ti-11gb-video-card']
