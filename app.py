@@ -31,10 +31,10 @@ class AttributesType(Enum):
     CUSTOM = 'custom'
 
 if 'yahoo' in os.getcwd():
-    path = os.path.join(os.getcwd(), 'settings.json')
+    path = os.path.join(os.getcwd())
 else:
-    path = os.path.join(os.getcwd(), 'yahoo', 'settings.json')
-with open(path) as json_data_file:
+    path = os.path.join(os.getcwd(), 'yahoo')
+with open(os.path.join(path, 'settings.json')) as json_data_file:
     credentials = json.load(json_data_file)
 
 def generate_request_header(credentials):
@@ -106,7 +106,6 @@ def generate_search_items_dict(credentials, keywords, start=None, end=None):
         start = 1
     if not end:
         end = start + 999
-    item_id_list = None
     req_dict = None
     req_dict = generate_request_header(credentials)
     if 'ResourceList' not in req_dict['ystorewsRequest'].keys():
@@ -115,7 +114,7 @@ def generate_search_items_dict(credentials, keywords, start=None, end=None):
                 'SimpleSearch': {
                     'StartIndex': start,
                     'EndIndex': end,
-                    'keyword': keywords
+                    'Keyword': keywords
                 }
             }
         }
@@ -133,25 +132,57 @@ def execute_get_items_request(credentials, item_id = None):
         response = requests.post(url, data=data, headers=headers)
         if response.ok:
             result = xmltodict.parse(response.text)
-    
     return result
 
-if __name__ == '__main__':
+def execute_search_items_request(credentials, keywords, start=None, end=None):
     result = None
-    ids = ['kj2375-intel-core-i58400-coffee-lake-6core-28-ghz-lga115', 'jw4213-gigabyte-bluetooth-wifi-pcie-adapter', 
-            'te5364-intel-bx80673i77820x-core-i7-xseries-cpu', 'ou6449-asus-rog-strix-geforce-gtx-1080ti-11gb-video-card']
+    url = None
+    if 'StoreID' in credentials.keys():
+        url = f'https://{credentials["StoreID"]}.catalog.store.yahooapis.com/V1/CatalogQuery'
+    req_dict = generate_search_items_dict(credentials, keywords, start, end)
+    if req_dict:
+        headers = {'Content-Type': 'application/xml'}
+        data = xmltodict.unparse(req_dict)
+        response = requests.post(url, data=data, headers=headers)
+        if response.ok:
+            result = xmltodict.parse(response.text)
+    return result
+
+def load_data():
+    with open(os.path.join(path, 'data.json')) as json_data_file:
+        data = json.load(json_data_file)
+    return data
+
+def main():
     if 'credentials' in credentials.keys():
-        result = execute_get_items_request(credentials['credentials'], item_id=ids)
-    try:
-        if result and result['ystorews:ystorewsResponse']['ResponseResourceList']['Catalog']['ItemList']['Item']:
-            items = result['ystorews:ystorewsResponse']['ResponseResourceList']['Catalog']['ItemList']['Item']
-            for item in items:
-                try:
-                    if item['Orderable'] == 'Yes':
-                        print(item['ID'] + ' is orderable')
-                    else:
-                        print(item['ID'] + ' is not orderable')
-                except:
-                    print('error retrieving Orderable value from item')
-    except:
-        print('error retrieving resutls from xml')
+        data = load_data()
+        result = None
+        if False: # get items
+            ids = data["GET"]
+            result = execute_get_items_request(credentials['credentials'], item_id=ids)
+            try:
+                if result and result['ystorews:ystorewsResponse']['ResponseResourceList']['Catalog']['ItemList']['Item']:
+                    items = result['ystorews:ystorewsResponse']['ResponseResourceList']['Catalog']['ItemList']['Item']
+                    for item in items:
+                        try:
+                            if item['Orderable'] == 'Yes':
+                                print(item['ID'] + ' is orderable')
+                            else:
+                                print(item['ID'] + ' is not orderable')
+                        except:
+                            print('error retrieving Orderable value from item')
+            except:
+                print('error retrieving resutls from xml')
+        elif True: # search 
+            result = execute_search_items_request(credentials['credentials'],keywords= data['SEARCH']['keyword'], start=data['SEARCH']['start'], end=data['SEARCH']['end'])
+            try:
+                if result and 'ID' in result['ystorews:ystorewsResponse']['ResponseResourceList']['Catalog']['ItemIDList'].keys():
+                    print(f"items matching keywords ({data['SEARCH']['keyword']}):")
+                    for id in result['ystorews:ystorewsResponse']['ResponseResourceList']['Catalog']['ItemIDList']['ID']:
+                        print('\t', id)
+            except:
+                print('error retrieving resutls from xml')
+
+if __name__ == '__main__':
+    main()
+    
